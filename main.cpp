@@ -13,7 +13,7 @@ typedef struct vec3 { double x, y, z; } vec3;
 
 using namespace std;
 
-SDL_Window* window = SDL_CreateWindow("Renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_BORDERLESS);
+SDL_Window* window = SDL_CreateWindow("Renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI);
 SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 SDL_Event event;
 
@@ -85,7 +85,15 @@ namespace canvas {
 };
 
 int SDL_main(int argc, char *argv[]) {
+  SDL_Cursor* handCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+  SDL_Cursor* regularCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+  const chrono::milliseconds frame_duration (6);
   double r1 = 50;
+  int mouse_x = 0, mouse_y = 0;
+  float mouse_sens = 0.2f;
+  float velocity_x = 6.0f;
+  float velocity_y = 2.0f;
+  float friction = 0.98f;
 
   // SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_MUL); // makes cool effect
 
@@ -130,17 +138,40 @@ int SDL_main(int argc, char *argv[]) {
   }};
 
   while (true) {
+    auto start_time = chrono::high_resolution_clock::now();
     canvas::clear({20, 20, 20});
   
     // begin draw
-    canvas::draw_polyhedron(cube, {255, 255, 255}, true);
-    transform::rotate_polyhedron(cube, {0, 0, 0}, 0.3, 0.15, 0.3, true);
+    canvas::draw_polyhedron(cube, {255, 255, 255}, true); // PERSPECTIVE
     // end draw
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) break;
+    if (event.type == SDL_MOUSEMOTION) {
+      if (event.motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+          SDL_SetCursor(handCursor);
+          mouse_x = event.motion.xrel; 
+          mouse_y = event.motion.yrel;
+          velocity_x = mouse_x * mouse_sens;
+          velocity_y = mouse_y * mouse_sens;
+      }
+    } else if (event.type == SDL_MOUSEBUTTONUP) {
+      if (event.button.button == SDL_BUTTON_LEFT) {
+        SDL_SetCursor(regularCursor);
+      }
+    } else {
+      velocity_x *= friction;
+      velocity_y *= friction;
+    }
 
-    SDL_Delay(16);
+    if (abs(velocity_x) > 0.001f || abs(velocity_y) > 0.001f) {
+      transform::rotate_polyhedron(cube, {0, 0, 0}, -velocity_y, velocity_x, 0, true);
+    }
+
+    auto end_time = chrono::high_resolution_clock::now();
+    auto elapsed = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
+    if (elapsed.count() > 20) elapsed = chrono::duration_cast<chrono::milliseconds>(start_time - start_time); // stops moving window from crashing program
+    SDL_Delay((frame_duration - elapsed).count());
     SDL_RenderPresent(renderer);
   }
 
