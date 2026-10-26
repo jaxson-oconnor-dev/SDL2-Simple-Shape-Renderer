@@ -1,0 +1,7 @@
+How to run:
+"mingw32-make"
+"./main"
+
+Makefile command:
+all:
+  g++ main.cpp -o main -Isrc/include -Lsrc/lib -lmingw32 -lSDL2main -lSDL2
